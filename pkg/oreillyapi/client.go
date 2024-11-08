@@ -2,7 +2,6 @@ package oreillyapi
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 )
@@ -27,8 +26,6 @@ func (c *Client) Search(opt SearchOption) (*SearchResponse, error) {
 		return nil, err
 	}
 	u.RawQuery = opt.queryParams().Encode()
-
-	fmt.Println("url:", u.String())
 
 	req := &http.Request{
 		Method: http.MethodGet,
