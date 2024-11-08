@@ -1,0 +1,20 @@
+name: test-release
+on:
+    push:
+        branches:
+            - main
+jobs:
+    test:
+        uses: Joju-Matsumoto/actions/.github/workflows/go-test.yml@main
+    release:
+        needs: test
+        uses: Joju-Matsumoto/actions/.github/workflows/release.yml@main
+        with:
+            type: |
+                ${{
+                    startsWith(github.event.head_commit.message, 'major:') &&
+                        'major' ||
+                    startsWith(github.event.head_commit.message, 'minor:') &&
+                        'minor' ||
+                    'patch'
+                }}

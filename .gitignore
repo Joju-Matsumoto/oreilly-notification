@@ -1,0 +1,6 @@
+.vscode/*.code-workspace
+
+tmp/
+.env
+
+*tmp_test.go
