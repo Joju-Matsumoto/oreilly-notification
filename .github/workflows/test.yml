@@ -1,0 +1,12 @@
+name: test
+on:
+    pull_request:
+        branches:
+            - main
+    push:
+        branches:
+            - develop
+    workflow_dispatch:
+jobs:
+    test:
+        uses: Joju-Matsumoto/actions/.github/workflows/go-test.yml@main
