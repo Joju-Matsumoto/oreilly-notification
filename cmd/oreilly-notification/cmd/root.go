@@ -24,15 +24,76 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/Joju-Matsumoto/oreilly-notification/internal/adapter/discordnotifier"
 	"github.com/Joju-Matsumoto/oreilly-notification/internal/adapter/jsonrepository"
 	"github.com/Joju-Matsumoto/oreilly-notification/internal/adapter/oreilly"
+	"github.com/Joju-Matsumoto/oreilly-notification/internal/adapter/printnotifier"
+	"github.com/Joju-Matsumoto/oreilly-notification/internal/domain/notifier"
 	notifyrecentlyaddedbooks "github.com/Joju-Matsumoto/oreilly-notification/internal/usecase/notify_recently_added_books"
 	updaterepository "github.com/Joju-Matsumoto/oreilly-notification/internal/usecase/update_repository"
 	"github.com/spf13/cobra"
 )
+
+func run(cmd *cobra.Command, args []string) error {
+	// positional arguments
+
+	jsonPath := args[0]
+
+	// flag arguments
+
+	token, _ := cmd.Flags().GetString("token")
+	channelID, _ := cmd.Flags().GetString("channel")
+	notify, _ := cmd.Flags().GetBool("notify")
+
+	// init updateRepository Usecase
+
+	bookWebAPI := oreilly.New()
+
+	bookRepository := jsonrepository.New(jsonPath)
+	if err := bookRepository.Open(); err != nil {
+		return fmt.Errorf("error Open: %w", err)
+	}
+	defer func() {
+		if err := bookRepository.Close(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+		}
+	}()
+
+	updateRepositoryUsecase := updaterepository.NewUsecase(bookWebAPI, bookRepository)
+
+	// init notifyRecentlyAddedBooks Usecases
+
+	var bookNotifier notifier.BookNotifier
+	if !notify {
+		bookNotifier = printnotifier.New(os.Stdout)
+	} else {
+		discordBookNotifier, err := discordnotifier.New(discordnotifier.Config{
+			Token: token,
+			TargetChannelIDs: []string{
+				channelID,
+			},
+		})
+		if err != nil {
+			return err
+		}
+		if err := discordBookNotifier.Open(); err != nil {
+			return err
+		}
+		defer discordBookNotifier.Close()
+
+		bookNotifier = discordBookNotifier
+	}
+	notifyRecentlyAddedBooksUsecase := notifyrecentlyaddedbooks.NewUsecase(updateRepositoryUsecase, bookNotifier)
+
+	// execute usecase
+	if err := notifyRecentlyAddedBooksUsecase.NotifyRecentlyAddedBooks(context.Background()); err != nil {
+		return err
+	}
+	return nil
+}
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -43,57 +104,10 @@ var rootCmd = &cobra.Command{
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
 	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// positional arguments
-
-		jsonPath := args[0]
-
-		// flag arguments
-
-		token, _ := cmd.Flags().GetString("token")
-		if token == "" {
-
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := run(cmd, args); err != nil {
+			log.Fatal(err)
 		}
-		channelID, _ := cmd.Flags().GetString("channel")
-
-		// init adapters
-
-		bookNotifier, err := discordnotifier.New(discordnotifier.Config{
-			Token: token,
-			TargetChannelIDs: []string{
-				channelID,
-			},
-		})
-		if err != nil {
-			return err
-		}
-		if err := bookNotifier.Open(); err != nil {
-			return err
-		}
-		defer bookNotifier.Close()
-
-		bookWebAPI := oreilly.New()
-
-		bookRepository := jsonrepository.New(jsonPath)
-		if err := bookRepository.Open(); err != nil {
-			return fmt.Errorf("error Open: %w", err)
-		}
-		defer func() {
-			if err := bookRepository.Close(); err != nil {
-				fmt.Fprintln(os.Stderr, err)
-			}
-		}()
-
-		// init usecases
-
-		updateRepositoryUsecase := updaterepository.NewUsecase(bookWebAPI, bookRepository)
-		notifyRecentlyAddedBooksUsecase := notifyrecentlyaddedbooks.NewUsecase(updateRepositoryUsecase, bookNotifier)
-
-		// execute usecase
-		if err := notifyRecentlyAddedBooksUsecase.NotifyRecentlyAddedBooks(context.Background()); err != nil {
-			return err
-		}
-		return nil
 	},
 }
 
@@ -117,8 +131,6 @@ func init() {
 	// when this action is called directly.
 	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	rootCmd.Flags().StringP("token", "t", "", "discord bot token")
-	rootCmd.MarkFlagRequired("token")
-
 	rootCmd.Flags().StringP("channel", "c", "", "discord channel id")
-	rootCmd.MarkFlagRequired("channel")
+	rootCmd.Flags().BoolP("notify", "n", false, "execute discord notification")
 }
