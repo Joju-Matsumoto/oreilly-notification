@@ -15,6 +15,7 @@ import (
 type Config struct {
 	Token            string
 	TargetChannelIDs []string // TODO: 微妙な設計
+	logger           *slog.Logger
 }
 
 func New(cfg Config) (*discordNotifier, error) {
@@ -22,9 +23,15 @@ func New(cfg Config) (*discordNotifier, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if cfg.logger == nil {
+		cfg.logger = slog.Default()
+	}
+
 	return &discordNotifier{
 		sess:             sess,
 		targetChannelIDs: cfg.TargetChannelIDs,
+		logger:           cfg.logger,
 	}, nil
 }
 
