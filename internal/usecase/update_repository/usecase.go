@@ -20,7 +20,8 @@ const (
 //go:generate moq -out usecase_moq_test.go . bookRepository bookWebAPI
 
 type bookRepository interface {
-	repository.BookRepository
+	repository.GetBookRepository
+	repository.SaveBookRepository
 }
 
 type bookWebAPI interface {

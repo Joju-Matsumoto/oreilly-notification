@@ -15,6 +15,7 @@ type (
 	BookRepository interface {
 		GetBookRepository
 		SaveBookRepository
+		ListBookRepository
 	}
 
 	GetBookRepository interface {
@@ -23,5 +24,11 @@ type (
 
 	SaveBookRepository interface {
 		Save(ctx context.Context, book *model.Book) error
+	}
+
+	ListBookOption struct {
+	}
+	ListBookRepository interface {
+		List(ctx context.Context, opt ListBookOption) ([]*model.Book, error)
 	}
 )
