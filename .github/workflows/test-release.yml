@@ -3,6 +3,8 @@ on:
     push:
         branches:
             - main
+permissions:
+    contents: write
 jobs:
     test:
         uses: Joju-Matsumoto/actions/.github/workflows/go-test.yml@main
